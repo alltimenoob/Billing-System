@@ -9,7 +9,6 @@ import api.products
 
 frame = 0
 
-
 def go_back(main):
     frame.forget()
     mps.manage_products_screen(main)
