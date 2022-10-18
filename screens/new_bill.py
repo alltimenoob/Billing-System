@@ -1,15 +1,10 @@
-from cgitb import text
-from cmath import exp
-from itertools import product
-from math import prod
-from sre_parse import fix_flags
 from tkinter import *
 from tkinter import ttk
-from turtle import right, width
 import colors
 import screens.home_screen as hs
 import api.products
 from tkinter import messagebox
+import api.customers 
 
 frame = 0
 
@@ -18,10 +13,10 @@ def go_back(main):
     frame.forget()
     hs.home_screen(main)
 
+    
+
 
 def new_bill(main):
-
-    product_types = api.product_types.getAll()
 
     style = ttk.Style()
     style.configure('TButton', foreground=colors.SECONDARY, width=20,
@@ -61,7 +56,20 @@ def new_bill(main):
     ttk.Entry(customer_data_frame, textvariable=customer_phone,
               width=90).grid(row=2, column=1)
 
-    ttk.Button(customer_data_frame, text="Fetch").grid(row=3, column=0)
+    ttk.Button(customer_data_frame, text="Fetch",command=lambda:set_or_get_customer()).grid(row=3, column=0)
+   
+    def set_or_get_customer():
+        global customer_id 
+        customer = api.customers.add((customer_name.get(),customer_email.get(),customer_phone.get()))
+        print(customer)
+        if len(customer) > 1:
+            customer_name.set(customer[1])
+            customer_email.set(customer[2])
+            customer_phone.set(customer[3])
+        else:
+            messagebox.showwarning("Not Found","Customer Does Not Exist!")
+
+    
     total_label = ttk.Label(customer_data_frame, text="Total - 0", background=colors.SECONDARY,
               foreground='#FFF', padding=5,)
     total_label.grid(row=3, column=1)
