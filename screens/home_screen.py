@@ -2,6 +2,7 @@ from tkinter import *
 from tkinter import ttk
 import colors
 import screens.manage_products_screen as mps
+import screens.manage_product_types_screen as mpts
 
 frame = 0
 
@@ -10,6 +11,9 @@ def manage_products_screen(main):
     frame.forget()
     mps.manage_products_screen(main)
 
+def manage_product_types_screen(main):
+    frame.forget()
+    mpts.manage_product_types_screen(main)
 
 def home_screen(main):
 
@@ -37,7 +41,7 @@ def home_screen(main):
     ttk.Button(sidebar, text="Manage Products", width=25, style='TButton',
                command=lambda: manage_products_screen(main)).pack(anchor='n', padx=10, pady=10)
     ttk.Button(sidebar, text="Manage Product Types", width=25,
-               style='TButton').pack(anchor='n', padx=10, pady=10)
+               command=lambda: manage_product_types_screen(main),style='TButton').pack(anchor='n', padx=10, pady=10)
     ttk.Button(sidebar, text="Quit", width=25, style='TButton',
                command=main.destroy).pack(anchor='n', side=RIGHT, padx=10, pady=10)
 
