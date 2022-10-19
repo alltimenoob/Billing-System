@@ -1,10 +1,11 @@
 import sqlite3
+import datetime
 
 connection = sqlite3.connect('database.db')
 database = connection.cursor()
 
 def getAll():
-    query = "SELECT * FROM products"
+    query = "SELECT * FROM bills"
     cursor = database.execute(query)
     result = cursor.fetchall()
     connection.commit()
@@ -13,26 +14,20 @@ def getAll():
 
 def add(data):
     try:
-        query = "INSERT INTO bills(amount,date,customer_id) \
-        VALUES('%s',%s,%s,%s)" % (data['products_name'] ,data['quantity'] \
-                ,data['price'] , data['products_types_id'])
-        print(query)
-
+        query = "INSERT INTO bills(amount,date,customers_id) \
+        VALUES('%s','%s','%s')" % (data['bill'][1] ,datetime.datetime.now() \
+                ,data['bill'][0])
         cursor = database.execute(query)
-        connection.commit()
+        bill_id = cursor.lastrowid
+
+        for i in data["products"]:
+            query = "INSERT INTO products_bills(products_id,bills_id,quantity,price) \
+                VALUES('%s','%s','%s','%s')" % (i[0],bill_id,i[1],i[2])
+            database.execute(query)
+            
+        connection.commit() 
+        return (1,)
     except Exception as e:
-        return -1
-    return cursor.lastrowid
+        print(e)
+        return (-1,)
 
-def update(data):
-    print(data)
-    try:
-        query = "UPDATE products set products_name = '%s', quantity = '%s', price ='%s' \
-        , products_types_id = '%s' WHERE products_id = '%s'" % ( data['products_name'] ,\
-         data['quantity']  ,data['price'] , data['products_types_id'],data['product_id'])
-        database.execute(query)
-        connection.commit()
-    except:
-        return -1
-
-    return 1
