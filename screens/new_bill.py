@@ -1,3 +1,4 @@
+from glob import glob
 from tkinter import *
 from tkinter import ttk
 import colors
@@ -5,16 +6,18 @@ import screens.home_screen as hs
 import api.products
 from tkinter import messagebox
 import api.customers 
+import api.bills
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 frame = 0
-
+customer_id = -1
+generated = False
 
 def go_back(main):
     frame.forget()
     hs.home_screen(main)
-
-    
-
 
 def new_bill(main):
 
@@ -56,20 +59,44 @@ def new_bill(main):
     ttk.Entry(customer_data_frame, textvariable=customer_phone,
               width=90).grid(row=2, column=1)
 
-    ttk.Button(customer_data_frame, text="Fetch",command=lambda:set_or_get_customer()).grid(row=3, column=0)
+    ttk.Button(customer_data_frame, text="Insert Or Fetch",command=lambda:set_or_get_customer()).grid(row=3, column=0)
    
     def set_or_get_customer():
         global customer_id 
-        customer = api.customers.add((customer_name.get(),customer_email.get(),customer_phone.get()))
-        print(customer)
-        if len(customer) > 1:
+        
+        customer = api.customers.getOneByPhone(customer_phone.get())
+        
+        if customer[0] != -1: 
+            customer_id = customer[0]
+            customer_name.set(customer[1])
+            customer_email.set(customer[2])
+            customer_phone.set(customer[3])
+            return
+
+        customer = api.customers.getOneByEmail(customer_email.get())
+        
+        if customer[0] != -1: 
+            customer_id = customer[0]
+            customer_name.set(customer[1])
+            customer_email.set(customer[2])
+            customer_phone.set(customer[3])
+            return
+
+        if customer_name.get() != "" and \
+            customer_email.get() != "" and \
+                customer_phone.get() != "" :
+            customer = api.customers.add((customer_name.get(),customer_email.get(),customer_phone.get()))
+            if customer[0] == -1: 
+                messagebox.showerror("Error","Customer Could Not Be Inserted")
+                return
+            customer_id = customer[0]
             customer_name.set(customer[1])
             customer_email.set(customer[2])
             customer_phone.set(customer[3])
         else:
-            messagebox.showwarning("Not Found","Customer Does Not Exist!")
+            messagebox.showerror("Error","Customer Could Not Be Fetched")
+            return
 
-    
     total_label = ttk.Label(customer_data_frame, text="Total - 0", background=colors.SECONDARY,
               foreground='#FFF', padding=5,)
     total_label.grid(row=3, column=1)
@@ -78,9 +105,73 @@ def new_bill(main):
     bill_frame = Frame(content, background=colors.PRIMARY)
     bill_frame.pack(side=TOP, fill=BOTH, expand=True)
 
+    generatebutton = ttk.Button(
+        content, text="Generate", command=lambda: generate_bill())
+    generatebutton.pack(side=BOTTOM, fill=X)
+
+    def generate_bill():
+        global generated
+        global bill_list_values
+
+        if customer_id == -1:
+            messagebox.showerror("Error","Customer Is Not Fetched Or Inserted")
+            return
+
+        if generated:
+            messagebox.showerror("Warning","Don't Spam ⚠")
+            return
+
+        email = """<!DOCTYPE html>
+                    <html>
+                    <head>
+                    <title>Page Title</title>
+                    </head>
+                    <body>
+
+                    <h1>Here Is Your Bill,""" + customer_name.get() +"""</h1>
+                    <p>Product  Quantity    Amount"""+"\n"
+                    
+        total = 0;
+        products = list()
+        for i in bill_list_values:
+            total += i['amount']
+            products.append([i['id'],i['quantity'].get(),i['price']])
+            email += "<p>"+i['product'].get()+"  "+str(i['quantity'].get())+"x  "+str(i['amount'])+"</p>"+"\n"
+            
+        email+="""<p> Total = """+str(total)+"""</p>
+                </body>
+                </html>"""
+        data = {}
+        data['bill'] = [customer_id,total]
+        data['products'] = products
+
+        api.bills.add(data)
+
+        s = smtplib.SMTP('smtp.project.com', 25)
+         
+        me = "testing@project.com"
+        you = api.customers.getEmailById(customer_id)[0]
+        
+        s.login(me, "m!h!r1245")
+       
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = "Link"
+        msg['From'] = me
+        msg['To'] = you
+        
+        part = MIMEText(email, 'html')
+        msg.attach(part)
+        s.sendmail(me, you, msg.as_string())
+        
+        s.quit()
+        
+        generated = True
+
+        return
+
     plusbutton = ttk.Button(
-        content, text="➕", command=lambda: add_new_product_to_bill())
-    plusbutton.pack(side=BOTTOM, fill=X)
+        content, text="➕",width=10, command=lambda: add_new_product_to_bill())
+    plusbutton.pack(side=BOTTOM)
 
     def add_new_product_to_bill():
         global n
@@ -88,9 +179,9 @@ def new_bill(main):
             n += 1
         except:
             n = 1
-        plusbutton.forget()
-        plusbutton.pack(side=BOTTOM, fill=X)
-        generate_bill_list(n)
+        products_length = len(api.products.getAll())
+        if products_length >= n:
+            generate_bill_list(n)
 
     def get_product_list():
         selected_values = [i["product"].get() for i in bill_list_values]
@@ -118,30 +209,36 @@ def new_bill(main):
 
         if "bill_list_values" not in globals():
             bill_list_values = list()
-            
-       
+        
         bill_item_frames=list()
         for x in range(n):
-            products = get_product_list()
-            bill_list_values.append(
-                {"product": StringVar(), "quantity": IntVar(), "amount": 0})
-            if bill_list_values[x]['product'].get() != "":
-                if bill_list_values[x]['quantity'].get() == 0: bill_list_values[x]['quantity'].set(1)
-                bill_list_values[x]['amount'] = [i[2] for i in api.products.getAll(
-                ) if i[1] == bill_list_values[x]['product'].get()][0] * bill_list_values[x]['quantity'].get()
-            total = [i['amount'] for i in bill_list_values]
-            total = sum(total)
-            total_label.config(text="Total - "+str(total))
-            values = ([i[1] for i in products])
-            bill_item_frames.append(
-                Frame(product_list, background=colors.PRIMARY,padx=10,pady=10))
-            if x < len(api.products.getAll()):
+                products = get_product_list()
+                if len(bill_list_values) < n:
+                    bill_list_values.append(
+                            {"product": StringVar(), "quantity": IntVar(), "amount": 0,"id":0,"price":0})
+                if bill_list_values[x]['product'].get() != "":
+                    if bill_list_values[x]['quantity'].get() == 0: bill_list_values[x]['quantity'].set(1)
+                    result = [[i[0],i[2]] for i in api.products.getAll(
+                    ) if i[1] == bill_list_values[x]['product'].get()][0]
+                    bill_list_values[x]['amount'] = result[1]  * bill_list_values[x]['quantity'].get()
+                    bill_list_values[x]['id'] = result[0]
+                    bill_list_values[x]['price'] = result[1]
+
+                total = [i['amount'] for i in bill_list_values]
+                total = sum(total)
+                total_label.config(text="Total - "+str(total))
+                
+                values = ([i[1] for i in products])
+                
+                bill_item_frames.append(
+                    Frame(product_list, background=colors.PRIMARY,padx=10,pady=10))
+                
                 product = ttk.Combobox(
                     bill_item_frames[x], textvariable=bill_list_values[x]["product"],width=40)
                 product['values'] = values
                 product.pack(side=LEFT,fill=Y)
                 product.bind('<<ComboboxSelected>>',
-                             lambda _: generate_bill_list(n))
+                            lambda _: generate_bill_list(n))
                 quantity = ttk.Entry(
                     bill_item_frames[x], textvariable=bill_list_values[x]['quantity'],width=40)
                 quantity.bind("<FocusOut>", lambda _: generate_bill_list(n))
@@ -149,7 +246,7 @@ def new_bill(main):
                     bill_list_values[x]['amount']),padding=10,width=20,foreground="#fff",background=colors.SECONDARY)
                 quantity.pack(side=LEFT,fill=Y)
                 amount.pack(side=LEFT,fill=Y)
-            bill_item_frames[x].pack(side=TOP, fill=X)
+                bill_item_frames[x].pack(side=TOP, fill=X)
 
         canvas_frame = canvas.create_window(
             0, 0, anchor=NW, window=product_list)
