@@ -16,7 +16,13 @@ customer_id = -1
 generated = False
 
 def go_back(main):
-    frame.forget()
+    global bill_list_values
+    global n
+    global generated
+    generated = False
+    n = 0
+    frame.destroy()
+    bill_list_values = list()
     hs.home_screen(main)
 
 def new_bill(main):
@@ -155,7 +161,7 @@ def new_bill(main):
         s.login(me, "m!h!r1245")
        
         msg = MIMEMultipart('alternative')
-        msg['Subject'] = "Link"
+        msg['Subject'] = "Your Bill For Products..."
         msg['From'] = me
         msg['To'] = you
         
@@ -164,6 +170,8 @@ def new_bill(main):
         s.sendmail(me, you, msg.as_string())
         
         s.quit()
+
+        messagebox.showinfo("Acknowledgement","Bill Generated Successfully")
         
         generated = True
 
